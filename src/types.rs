@@ -1,3 +1,8 @@
+fn sext(v: u32, w: u32) -> i32 {
+    let shift = 32 - w;
+    ((v << shift) as i32) >> shift
+} 
+
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub struct RType(pub u32);
 impl RType {
@@ -16,7 +21,7 @@ impl RType {
 pub struct CsrType(pub u32);
 impl CsrType {
     pub fn csr(&self) -> u32 {
-        (self.0 >> 20)
+        self.0 >> 20
     }
     pub fn rs1(&self) -> u32 {
         (self.0 >> 15) & 0x1f
@@ -30,7 +35,7 @@ impl CsrType {
 pub struct CsrIType(pub u32);
 impl CsrIType {
     pub fn csr(&self) -> u32 {
-        (self.0 >> 20)
+        self.0 >> 20
     }
     pub fn zimm(&self) -> u32 {
         (self.0 >> 15) & 0x1f
@@ -43,8 +48,11 @@ impl CsrIType {
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub struct IType(pub u32);
 impl IType {
-    pub fn imm(&self) -> u32 {
-        (self.0 >> 20)
+    pub fn uimm(&self) -> u32 {
+        self.0 >> 20
+    }
+    pub fn imm(&self) -> i32 {
+        sext(self.uimm(), 12)
     }
     pub fn rs1(&self) -> u32 {
         (self.0 >> 15) & 0x1f
@@ -57,8 +65,11 @@ impl IType {
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub struct SType(pub u32);
 impl SType {
-    pub fn imm(&self) -> u32 {
+    pub fn uimm(&self) -> u32 {
         ((self.0 >> 20) & 0xfe0) | ((self.0 >> 7) & 0x1f)
+    }
+    pub fn imm(&self) -> i32 {
+        sext(self.uimm(), 12)
     }
     pub fn rs1(&self) -> u32 {
         (self.0 >> 15) & 0x1f
@@ -71,11 +82,14 @@ impl SType {
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub struct BType(pub u32);
 impl BType {
-    pub fn imm(&self) -> u32 {
+    pub fn uimm(&self) -> u32 {
         ((self.0 & 0x8000_0000) >> 19)
             | ((self.0 & 0x7e00_0000) >> 20)
             | ((self.0 & 0x0000_0f00) >> 7)
             | ((self.0 & 0x0000_0080) << 4)
+    }
+    pub fn imm(&self) -> i32 {
+        sext(self.uimm(), 13)
     }
     pub fn rs1(&self) -> u32 {
         (self.0 >> 15) & 0x1f
@@ -99,11 +113,14 @@ impl UType {
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub struct JType(pub u32);
 impl JType {
-    pub fn imm(&self) -> u32 {
+    pub fn uimm(&self) -> u32 {
         ((self.0 & 0x8000_0000) >> 11)
             | ((self.0 & 0x7fe0_0000) >> 20)
             | ((self.0 & 0x0010_0000) >> 9)
             | (self.0 & 0x000f_f000)
+    }
+    pub fn imm(&self) -> i32 {
+        sext(self.uimm(), 21)
     }
     pub fn rd(&self) -> u32 {
         (self.0 >> 7) & 0x1f
@@ -272,7 +289,8 @@ mod tests {
         assert_eq!(IType(0x0006c703).imm(), 0); // Lbu x14,0(x13)
         assert_eq!(IType(0x0007c683).imm(), 0); // Lbu x13,0(x15)
         assert_eq!(IType(0x0060df03).imm(), 6); // Lhu x30,6(x1)
-        assert_eq!(IType(0xffe0df03).imm(), (-2i32) as u32 & 0xfff); // Lhu x30,-2(x1)
+        assert_eq!(IType(0xffe0df03).uimm(), (-2i32) as u32 & 0xfff); // Lhu x30,-2(x1)
+        assert_eq!(IType(0xffe0df03).imm(), -2i32); // Lhu x30,-2(x1)
         assert_eq!(IType(0x0002d303).imm(), 0); // Lhu x6,0(x5)
         assert_eq!(IType(0x00346303).imm(), 3); // Lwu x6,3(x8)
         assert_eq!(IType(0x0080ef03).imm(), 8); // Lwu x30,8(x1)
@@ -291,7 +309,8 @@ mod tests {
         assert_eq!(BType(0x06f58063).imm(), 0x80002648 - 0x800025e8); // beq x11,x15,80002648
         assert_eq!(BType(0x00050a63).imm(), 0x800024e8 - 0x800024d4); // beq x10,x0,800024e8
         assert_eq!(BType(0x03ff0663).imm(), 0x80000040 - 0x80000014); // beq x30,x31,80000040
-        assert_eq!(BType(0xfe069ae3).imm(), (0x800026f0i32 - 0x800026fci32) as u32 & 0x1fff); // bne x13,x0,800026f0
+        assert_eq!(BType(0xfe069ae3).uimm(), (0x800026f0i32 - 0x800026fci32) as u32 & 0x1fff); // bne x13,x0,800026f0
+        assert_eq!(BType(0xfe069ae3).imm(), 0x800026f0i32 - 0x800026fci32); // bne x13,x0,800026f0
         assert_eq!(BType(0x00f5f463).imm(), 0x80002290 - 0x80002288); // bgeu x11,x15,80002290
         assert_eq!(BType(0x1e301c63).imm(), 0x800003c4 - 0x800001cc); // bne x0,x3,800003c4
         assert_eq!(BType(0x13df1063).imm(), 0x800030dc - 0x80002fbc); // bne x30,x29,800030dc
@@ -318,14 +337,18 @@ mod tests {
     #[test]
     #[allow(overflowing_literals)]
     fn jtype() {
-        assert_eq!(JType(0xfe1ff06f).imm(), (0x800029eci32 - 0x80002a0ci32) as u32 & 0x1fffff); // jal x0,800029ec
+        assert_eq!(JType(0xfe1ff06f).uimm(), (0x800029eci32 - 0x80002a0ci32) as u32 & 0x1fffff); // jal x0,800029ec
+        assert_eq!(JType(0xfe1ff06f).imm(), (0x800029eci32 - 0x80002a0ci32)); // jal x0,800029ec
         assert_eq!(JType(0x0000006f).imm(), 0x80002258 - 0x80002258); // jal x0,80002258
-        assert_eq!(JType(0xf89ff06f).imm(), (0x800027aci32 - 0x80002824i32)  as u32 & 0x1fffff); // jal x0,800027ac
+        assert_eq!(JType(0xf89ff06f).uimm(), (0x800027aci32 - 0x80002824i32)  as u32 & 0x1fffff); // jal x0,800027ac
+        assert_eq!(JType(0xf89ff06f).imm(), (0x800027aci32 - 0x80002824i32)); // jal x0,800027ac
         assert_eq!(JType(0x0240006f).imm(), 0x8000215c - 0x80002138); // jal x0,8000215c
-        assert_eq!(JType(0xd89ff0ef).imm(), (0x80002230i32 - 0x800024a8i32) as u32 & 0x1fffff); // jal x1,80002230
+        assert_eq!(JType(0xd89ff0ef).uimm(), (0x80002230i32 - 0x800024a8i32) as u32 & 0x1fffff); // jal x1,80002230
+        assert_eq!(JType(0xd89ff0ef).imm(), (0x80002230i32 - 0x800024a8i32)); // jal x1,80002230
         assert_eq!(JType(0x008007ef).imm(), 0x8000265c - 0x80002654); // jal x15,8000265c
         assert_eq!(JType(0x0240006f).imm(), 0x80002154 - 0x80002130); // jal x0,80002154
-        assert_eq!(JType(0xf71ff06f).imm(), (0x80002750i32 - 0x800027e0i32) as u32 & 0x1fffff); // jal x0,80002750
+        assert_eq!(JType(0xf71ff06f).uimm(), (0x80002750i32 - 0x800027e0i32) as u32 & 0x1fffff); // jal x0,80002750
+        assert_eq!(JType(0xf71ff06f).imm(), (0x80002750i32 - 0x800027e0i32)); // jal x0,80002750
         assert_eq!(JType(0x00c0006f).imm(), 0x8000000c - 0x80000000); // jal x0,8000000c
 
         assert_eq!(JType(0xfe1ff06f).rd(), 0); // jal x0,800029ec
