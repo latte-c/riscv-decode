@@ -152,6 +152,34 @@ impl ShiftType {
     }
 }
 
+// Compressed instruction types
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
+pub struct CRType(pub u16);
+
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
+pub struct CIType(pub u16);
+
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
+pub struct CSSType(pub u16);
+
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
+pub struct CIWType(pub u16);
+
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
+pub struct CLType(pub u16);
+
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
+pub struct CSType(pub u16);
+
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
+pub struct CAType(pub u16);
+
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
+pub struct CBType(pub u16);
+
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
+pub struct CJType(pub u16);
+
 #[cfg(test)]
 mod tests {
     use super::*;

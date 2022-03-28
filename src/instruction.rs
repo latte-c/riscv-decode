@@ -105,9 +105,41 @@ pub enum Instruction {
     Remw(RType),
     Remuw(RType),
 
+    Compressed(CompressedInstruction),
+
     // Illegal
     Illegal,
 
     #[doc(hidden)]
     __Nonexhaustive,
+}
+
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
+pub enum CompressedInstruction {
+    CAddi4spn(CIWType),
+    CLw(CLType),
+    CSw(CSType),
+    CAddi(CIType),
+    CLi(CIType),
+    CLui(CIType),
+    CAddi16sp(CIType),
+    CAndi(CBType),
+    CSub(CAType),
+    CXor(CAType),
+    COr(CAType),
+    CAnd(CAType),
+    CSubw(CAType),
+    CAddw(CAType),
+    CJ(CJType),
+    CBeqz(CBType),
+    CBnez(CBType),
+    CSlli(CIType),
+    CLwsp(CIType),
+    CSwsp(CSSType),
+    CJr(CRType),
+    CJalr(CRType),
+    CMv(CRType),
+    CAdd(CRType),
+    CEbreak,
+    CNop,
 }
