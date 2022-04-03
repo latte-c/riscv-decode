@@ -7,6 +7,7 @@ pub mod types;
 use types::*;
 
 pub use instruction::Instruction;
+pub use instruction::CompressedInstruction;
 
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub enum DecodingError {
