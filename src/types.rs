@@ -1,7 +1,7 @@
 fn sext(v: u32, w: u32) -> i32 {
     let shift = 32 - w;
     ((v << shift) as i32) >> shift
-} 
+}
 
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub struct RType(pub u32);
@@ -179,6 +179,23 @@ pub struct CBType(pub u16);
 
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub struct CJType(pub u16);
+impl CJType {
+    pub fn uimm(&self) -> u32 {
+        // [12:2] -> offset[11|4|9:8|10|6|7|3:1|5]
+        let i = ((self.0 & 0x1000) >> 1)
+            | ((self.0 & 0x0800) >> 7)
+            | ((self.0 & 0x0600) >> 1)
+            | ((self.0 & 0x0100) << 2)
+            | ((self.0 & 0x0080) >> 1)
+            | ((self.0 & 0x0040) << 1)
+            | ((self.0 & 0x0038) >> 2)
+            | ((self.0 & 0x0004) << 3);
+        i as u32
+    }
+    pub fn imm(&self) -> i32 {
+        sext(self.uimm(), 12)
+    }
+}
 
 #[cfg(test)]
 mod tests {
@@ -328,7 +345,6 @@ mod tests {
         assert_eq!(IType(0x0007b703).imm(), 0); // Ld x14,0(x15)
     }
 
-
     #[test]
     #[allow(overflowing_literals)]
     fn btype() {
@@ -337,7 +353,10 @@ mod tests {
         assert_eq!(BType(0x06f58063).imm(), 0x80002648 - 0x800025e8); // beq x11,x15,80002648
         assert_eq!(BType(0x00050a63).imm(), 0x800024e8 - 0x800024d4); // beq x10,x0,800024e8
         assert_eq!(BType(0x03ff0663).imm(), 0x80000040 - 0x80000014); // beq x30,x31,80000040
-        assert_eq!(BType(0xfe069ae3).uimm(), (0x800026f0i32 - 0x800026fci32) as u32 & 0x1fff); // bne x13,x0,800026f0
+        assert_eq!(
+            BType(0xfe069ae3).uimm(),
+            (0x800026f0i32 - 0x800026fci32) as u32 & 0x1fff
+        ); // bne x13,x0,800026f0
         assert_eq!(BType(0xfe069ae3).imm(), 0x800026f0i32 - 0x800026fci32); // bne x13,x0,800026f0
         assert_eq!(BType(0x00f5f463).imm(), 0x80002290 - 0x80002288); // bgeu x11,x15,80002290
         assert_eq!(BType(0x1e301c63).imm(), 0x800003c4 - 0x800001cc); // bne x0,x3,800003c4
@@ -365,17 +384,29 @@ mod tests {
     #[test]
     #[allow(overflowing_literals)]
     fn jtype() {
-        assert_eq!(JType(0xfe1ff06f).uimm(), (0x800029eci32 - 0x80002a0ci32) as u32 & 0x1fffff); // jal x0,800029ec
+        assert_eq!(
+            JType(0xfe1ff06f).uimm(),
+            (0x800029eci32 - 0x80002a0ci32) as u32 & 0x1fffff
+        ); // jal x0,800029ec
         assert_eq!(JType(0xfe1ff06f).imm(), (0x800029eci32 - 0x80002a0ci32)); // jal x0,800029ec
         assert_eq!(JType(0x0000006f).imm(), 0x80002258 - 0x80002258); // jal x0,80002258
-        assert_eq!(JType(0xf89ff06f).uimm(), (0x800027aci32 - 0x80002824i32)  as u32 & 0x1fffff); // jal x0,800027ac
+        assert_eq!(
+            JType(0xf89ff06f).uimm(),
+            (0x800027aci32 - 0x80002824i32) as u32 & 0x1fffff
+        ); // jal x0,800027ac
         assert_eq!(JType(0xf89ff06f).imm(), (0x800027aci32 - 0x80002824i32)); // jal x0,800027ac
         assert_eq!(JType(0x0240006f).imm(), 0x8000215c - 0x80002138); // jal x0,8000215c
-        assert_eq!(JType(0xd89ff0ef).uimm(), (0x80002230i32 - 0x800024a8i32) as u32 & 0x1fffff); // jal x1,80002230
+        assert_eq!(
+            JType(0xd89ff0ef).uimm(),
+            (0x80002230i32 - 0x800024a8i32) as u32 & 0x1fffff
+        ); // jal x1,80002230
         assert_eq!(JType(0xd89ff0ef).imm(), (0x80002230i32 - 0x800024a8i32)); // jal x1,80002230
         assert_eq!(JType(0x008007ef).imm(), 0x8000265c - 0x80002654); // jal x15,8000265c
         assert_eq!(JType(0x0240006f).imm(), 0x80002154 - 0x80002130); // jal x0,80002154
-        assert_eq!(JType(0xf71ff06f).uimm(), (0x80002750i32 - 0x800027e0i32) as u32 & 0x1fffff); // jal x0,80002750
+        assert_eq!(
+            JType(0xf71ff06f).uimm(),
+            (0x80002750i32 - 0x800027e0i32) as u32 & 0x1fffff
+        ); // jal x0,80002750
         assert_eq!(JType(0xf71ff06f).imm(), (0x80002750i32 - 0x800027e0i32)); // jal x0,80002750
         assert_eq!(JType(0x00c0006f).imm(), 0x8000000c - 0x80000000); // jal x0,8000000c
 
@@ -434,5 +465,10 @@ mod tests {
         assert_eq!(ShiftType(0x41f0df1b).rd(), 30); // sraiw x30,x1,0x1f
         assert_eq!(ShiftType(0x4000df1b).rd(), 30); // sraiw x30,x1,0x0
         assert_eq!(ShiftType(0x4070d09b).rd(), 1); // sraiw x1,x1,0x7
+    }
+
+    #[test]
+    fn compressed() {
+        assert_eq!(CJType(0xa019).imm(), 6);
     }
 }
