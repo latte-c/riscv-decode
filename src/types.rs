@@ -155,6 +155,17 @@ impl ShiftType {
 // Compressed instruction types
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub struct CRType(pub u16);
+impl CRType {
+    pub fn rs1(&self) -> u32 {
+        ((self.0 >> 7) & 0x1f) as u32
+    }
+    pub fn rs2(&self) -> u32 {
+        ((self.0 >> 2) & 0x1f) as u32
+    }
+    pub fn rd(&self) -> u32 {
+        ((self.0 >> 7) & 0x1f) as u32
+    }
+}
 
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub struct CIType(pub u16);
